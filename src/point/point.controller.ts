@@ -9,7 +9,7 @@ import {
     Patch,
     ValidationPipe,
 } from '@nestjs/common'
-import { PointHistory, TransactionType, UserPoint } from './point.model'
+import { PointHistory, ProcessObjectItem, UserPoint } from './point.model'
 import { PointBody as PointDto } from './point.dto'
 import { PointService } from './point.service'
 
@@ -17,7 +17,7 @@ import { PointService } from './point.service'
 export class PointController {
     constructor(private pointService: PointService) {}
 
-    flag = true
+    processObject: Record<number, ProcessObjectItem> = {}
     /**
      * TODO - 특정 유저의 포인트를 조회하는 기능을 작성해주세요.
      */
@@ -42,11 +42,24 @@ export class PointController {
         @Param('id', ParseIntPipe) id,
         @Body(ValidationPipe) pointDto: PointDto,
     ): Promise<UserPoint> {
-        const amount = pointDto.amount
+        if (!this.processObject[id]) {
+            const amount = pointDto.amount
+            this.processObject[id] = {
+                userId: id,
+                amount,
+                type: 1,
+                timeMillis: Date.now(),
+            }
 
-        const getUserPointResult = await this.pointService.getUserPoint(id)
-        const newAmount = getUserPointResult.point + amount
-        return this.pointService.chargeUserPoint(id, newAmount)
+            const getUserPointResult = await this.pointService.getUserPoint(id)
+            const newAmount = getUserPointResult.point + amount
+            const chargeUserPointResult =
+                await this.pointService.chargeUserPoint(id, newAmount)
+            delete this.processObject[id]
+            return chargeUserPointResult
+        } else {
+            throw new InternalServerErrorException('처리중인 요청이 있습니다.')
+        }
     }
 
     /**
@@ -57,18 +70,27 @@ export class PointController {
         @Param('id', ParseIntPipe) id,
         @Body(ValidationPipe) pointDto: PointDto,
     ): Promise<UserPoint> {
-        if (this.flag) {
-            this.flag = false
+        if (!this.processObject[id]) {
             const amount = pointDto.amount
+            this.processObject[id] = {
+                userId: id,
+                amount,
+                type: 1,
+                timeMillis: Date.now(),
+            }
 
             const getUserPointResult = await this.pointService.getUserPoint(id)
 
             if (getUserPointResult.point >= amount) {
                 const newAmount = getUserPointResult.point - amount
-                this.flag = true
-                return this.pointService.useUserPoint(id, newAmount)
+                const useUserPointResult = await this.pointService.useUserPoint(
+                    id,
+                    newAmount,
+                )
+                delete this.processObject[id]
+                return useUserPointResult
             } else {
-                this.flag = true
+                delete this.processObject[id]
                 throw new BadRequestException('포인트가 충분하지 않습니다.')
             }
         } else {

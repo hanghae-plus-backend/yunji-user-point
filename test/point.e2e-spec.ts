@@ -130,7 +130,7 @@ describe('Point', () => {
                 expect(response.status).toBe(400)
             })
 
-            test('포인트 사용을 동시에 실행 시 순차 처리 후 잔액 부족 시 에러 발생', async () => {
+            test('같은 유저의 포인트 사용을 동시에 실행 시 순차 처리 후 잔액 부족 시 에러 발생', async () => {
                 const usePromises = []
                 for (let i = 0; i < 10; i++) {
                     usePromises.push(
@@ -152,7 +152,34 @@ describe('Point', () => {
                 )
 
                 expect(successResponses).not.toHaveLength(10)
-                // expect(errorResponses).toHaveLength(2)
+            })
+
+            test('다른 유저의 포인트 사용을 동시에 실행 시 정상 처리', async () => {
+                const anotherUser = userId + 1
+                await request(app.getHttpServer())
+                    .patch(`/point/${anotherUser}/charge`)
+                    .send({ amount: 1000 })
+
+                const usePromises = []
+                usePromises.push(
+                    request(app.getHttpServer())
+                        .patch(`/point/${userId}/use`)
+                        .send({ amount: 300 }),
+                )
+                usePromises.push(
+                    request(app.getHttpServer())
+                        .patch(`/point/${anotherUser}/use`)
+                        .send({ amount: 300 }),
+                )
+
+                const results = await Promise.allSettled(usePromises)
+
+                const successResponses = results.filter(
+                    result =>
+                        result.status === 'fulfilled' &&
+                        result.value.statusCode === 200,
+                )
+                expect(successResponses).toHaveLength(2)
             })
         })
 

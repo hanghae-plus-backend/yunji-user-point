@@ -10,11 +10,19 @@ export type UserPoint = {
  * - USE : 사용
  */
 export enum TransactionType {
-    CHARGE, USE
+    CHARGE,
+    USE,
 }
 
 export type PointHistory = {
     id: number
+    userId: number
+    type: TransactionType
+    amount: number
+    timeMillis: number
+}
+
+export type ProcessObjectItem = {
     userId: number
     type: TransactionType
     amount: number
