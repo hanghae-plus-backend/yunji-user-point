@@ -87,14 +87,15 @@ describe('Point', () => {
 
         describe('/point/:id/use (PATCH)', () => {
             test('실행시 정상적으로 유저의 포인트를 사용함', async () => {
+                const tryAmount = 50
                 const response = await request(app.getHttpServer())
                     .patch(`/point/${userId}/use`)
-                    .send({ amount: 50 })
+                    .send({ amount: tryAmount })
 
                 expect(response.statusCode).toBe(200)
                 expect(response.body).toEqual({
                     id: userId,
-                    point: 950,
+                    point: initAmount - tryAmount,
                     updateMillis: expect.any(Number),
                 })
             })
