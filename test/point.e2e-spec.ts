@@ -5,7 +5,8 @@ import { PointModule } from '../src/point/point.module'
 
 describe('Point', () => {
     let app: INestApplication
-    let userId = 1
+    const userId = 1
+    const initAmount = 1000
 
     beforeEach(async () => {
         const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -17,7 +18,7 @@ describe('Point', () => {
 
         await request(app.getHttpServer())
             .patch(`/point/${userId}/charge`)
-            .send({ amount: 1000 })
+            .send({ amount: initAmount })
     })
 
     describe('/point/:id (GET)', () => {
@@ -27,7 +28,7 @@ describe('Point', () => {
             expect(response.statusCode).toBe(200)
             expect(response.body).toEqual({
                 id: userId,
-                point: 1000,
+                point: initAmount,
                 updateMillis: expect.any(Number),
             })
         })
@@ -44,7 +45,7 @@ describe('Point', () => {
                 expect.arrayContaining([
                     expect.objectContaining({
                         userId: userId,
-                        amount: 1000,
+                        amount: initAmount,
                         type: 0,
                         timeMillis: expect.any(Number),
                         id: expect.any(Number),
@@ -62,7 +63,7 @@ describe('Point', () => {
                 expect(response.statusCode).toBe(200)
                 expect(response.body).toEqual({
                     id: userId,
-                    point: 1100,
+                    point: initAmount + 100,
                     updateMillis: expect.any(Number),
                 })
             })
@@ -101,7 +102,7 @@ describe('Point', () => {
             test('현재 포인트 잔액보다 높은 포인트를 사용하려 시도할 시 에러 발생', async () => {
                 const response = await request(app.getHttpServer())
                     .patch(`/point/${userId}/use`)
-                    .send({ amount: 5000 })
+                    .send({ amount: initAmount * 5 })
 
                 expect(response.status).toBe(400)
             })
@@ -131,12 +132,14 @@ describe('Point', () => {
             })
 
             test('같은 유저의 포인트 사용을 동시에 실행 시 순차 처리 후 잔액 부족 시 에러 발생', async () => {
+                const amountTry = 300
                 const usePromises = []
+
                 for (let i = 0; i < 10; i++) {
                     usePromises.push(
                         request(app.getHttpServer())
                             .patch(`/point/${userId}/use`)
-                            .send({ amount: 300 }),
+                            .send({ amount: amountTry }),
                     )
                 }
 
@@ -151,7 +154,9 @@ describe('Point', () => {
                     result => result.status === 'rejected',
                 )
 
-                expect(successResponses).not.toHaveLength(10)
+                expect(successResponses.length).toBeLessThanOrEqual(
+                    Math.floor(initAmount / amountTry),
+                )
             })
 
             test('다른 유저의 포인트 사용을 동시에 실행 시 정상 처리', async () => {
