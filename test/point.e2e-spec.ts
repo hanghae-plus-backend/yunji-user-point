@@ -151,11 +151,6 @@ describe('Point', () => {
                         result.status === 'fulfilled' &&
                         result.value.statusCode === 200,
                 )
-                const errorResponses = results.filter(
-                    result => result.status === 'rejected',
-                )
-
-                console.log(successResponses)
 
                 expect(successResponses.length).toBeLessThanOrEqual(
                     Math.floor(initAmount / amountTry),

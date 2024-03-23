@@ -21,27 +21,48 @@ export class PointService {
     }
 
     async chargeUserPoint(id: number, amount: number): Promise<UserPoint> {
+        let currentPoint: UserPoint
         let updateResultUserDB: UserPoint
         await this.locks.executeOnLock(
             async () => {
-                const currentPoint = await this.userDb.selectById(id)
+                try {
+                    currentPoint = await this.userDb.selectById(id)
+                } catch (error) {
+                    throw error
+                }
 
-                updateResultUserDB = await this.userDb.insertOrUpdate(
-                    id,
-                    currentPoint.point + amount,
-                )
+                try {
+                    updateResultUserDB = await this.userDb.insertOrUpdate(
+                        id,
+                        currentPoint.point + amount,
+                    )
+                } catch (error) {
+                    throw error
+                }
 
-                const { id: resultId, point, updateMillis } = updateResultUserDB
+                try {
+                    const {
+                        id: resultId,
+                        point,
+                        updateMillis,
+                    } = updateResultUserDB
 
-                let updateResultHistoryDB: PointHistory
-                const transactionType = TransactionType.CHARGE
+                    let updateResultHistoryDB: PointHistory
+                    const transactionType = TransactionType.CHARGE
 
-                updateResultHistoryDB = await this.historyDb.insert(
-                    resultId,
-                    point,
-                    transactionType,
-                    updateMillis,
-                )
+                    updateResultHistoryDB = await this.historyDb.insert(
+                        resultId,
+                        point,
+                        transactionType,
+                        updateMillis,
+                    )
+                } catch (error) {
+                    updateResultUserDB = await this.userDb.insertOrUpdate(
+                        id,
+                        currentPoint.point,
+                    )
+                    throw error
+                }
             },
             { userId: id, amount },
         )
@@ -50,31 +71,48 @@ export class PointService {
     }
 
     async useUserPoint(id: number, amount: number): Promise<UserPoint> {
+        let currentPoint: UserPoint
         let updateResultUserDB: UserPoint
         let updateResultHistoryDB: PointHistory
         await this.locks.executeOnLock(
             async () => {
-                const currentPoint = await this.userDb.selectById(id)
+                try {
+                    currentPoint = await this.userDb.selectById(id)
+                } catch (error) {
+                    throw error
+                }
 
                 if (currentPoint.point >= amount) {
-                    updateResultUserDB = await this.userDb.insertOrUpdate(
-                        id,
-                        currentPoint.point - amount,
-                    )
+                    try {
+                        updateResultUserDB = await this.userDb.insertOrUpdate(
+                            id,
+                            currentPoint.point - amount,
+                        )
+                    } catch (error) {
+                        throw error
+                    }
 
-                    const {
-                        id: resultId,
-                        point,
-                        updateMillis,
-                    } = updateResultUserDB
-                    const transactionType = TransactionType.USE
+                    try {
+                        const {
+                            id: resultId,
+                            point,
+                            updateMillis,
+                        } = updateResultUserDB
+                        const transactionType = TransactionType.USE
 
-                    updateResultHistoryDB = await this.historyDb.insert(
-                        resultId,
-                        point,
-                        transactionType,
-                        updateMillis,
-                    )
+                        updateResultHistoryDB = await this.historyDb.insert(
+                            resultId,
+                            point,
+                            transactionType,
+                            updateMillis,
+                        )
+                    } catch (error) {
+                        updateResultUserDB = await this.userDb.insertOrUpdate(
+                            id,
+                            currentPoint.point,
+                        )
+                        throw error
+                    }
                 } else {
                     throw new Error('Not enough points')
                 }
