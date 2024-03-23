@@ -7,6 +7,8 @@ describe('Point', () => {
     let app: INestApplication
     const userId = 1
     const initAmount = 1000
+    const maxRetriesCaseFailure = 2
+    const retryDelayCaseFailure = 3000
 
     beforeEach(async () => {
         const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -100,24 +102,32 @@ describe('Point', () => {
                 })
             })
 
-            test('현재 포인트 잔액보다 높은 포인트를 사용하려 시도할 시 에러 발생', async () => {
-                const response = await request(app.getHttpServer())
-                    .patch(`/point/${userId}/use`)
-                    .send({ amount: initAmount * 5 })
+            test(
+                '현재 포인트 잔액보다 높은 포인트를 사용하려 시도할 시 에러 발생',
+                async () => {
+                    const response = await request(app.getHttpServer())
+                        .patch(`/point/${userId}/use`)
+                        .send({ amount: initAmount * 5 })
 
-                expect(response.status).toBe(400)
-            }, 10000)
+                    expect(response.status).toBe(400)
+                },
+                maxRetriesCaseFailure * retryDelayCaseFailure + 5000,
+            )
 
-            test('유효하지 않는 아이디로 사용 시도 시 에러 발생', async () => {
-                const response = await request(app.getHttpServer())
-                    .patch(`/point/0/use`)
-                    .send({ amount: 50 })
+            test(
+                '유효하지 않는 아이디로 사용 시도 시 에러 발생',
+                async () => {
+                    const response = await request(app.getHttpServer())
+                        .patch(`/point/0/use`)
+                        .send({ amount: 50 })
 
-                expect(response.status).toBe(400)
-                expect(response.body.message).toBe(
-                    'id is must be positive number.',
-                )
-            }, 10000)
+                    expect(response.status).toBe(400)
+                    expect(response.body.message).toBe(
+                        'id is must be positive number.',
+                    )
+                },
+                maxRetriesCaseFailure * retryDelayCaseFailure + 5000,
+            )
 
             test('유효하지 않는 값으로 충전 시도 시 에러 발생', async () => {
                 const response = await request(app.getHttpServer())
@@ -135,30 +145,34 @@ describe('Point', () => {
                 expect(response.status).toBe(400)
             })
 
-            test('같은 유저의 포인트 사용을 동시에 실행 시 순차 처리 후 잔액 부족 시 에러 발생', async () => {
-                const amountTry = 300
-                const usePromises = []
+            test(
+                '같은 유저의 포인트 사용을 동시에 실행 시 순차 처리 후 잔액 부족 시 에러 발생',
+                async () => {
+                    const tryAmount = 300
+                    const usePromises = []
 
-                for (let i = 0; i < 10; i++) {
-                    usePromises.push(
-                        request(app.getHttpServer())
-                            .patch(`/point/${userId}/use`)
-                            .send({ amount: amountTry }),
+                    for (let i = 0; i < 10; i++) {
+                        usePromises.push(
+                            request(app.getHttpServer())
+                                .patch(`/point/${userId}/use`)
+                                .send({ amount: tryAmount }),
+                        )
+                    }
+
+                    const results = await Promise.allSettled(usePromises)
+
+                    const successResponses = results.filter(
+                        result =>
+                            result.status === 'fulfilled' &&
+                            result.value.statusCode === 200,
                     )
-                }
 
-                const results = await Promise.allSettled(usePromises)
-
-                const successResponses = results.filter(
-                    result =>
-                        result.status === 'fulfilled' &&
-                        result.value.statusCode === 200,
-                )
-
-                expect(successResponses.length).toBeLessThanOrEqual(
-                    Math.floor(initAmount / amountTry),
-                )
-            }, 60000)
+                    expect(successResponses.length).toBeLessThanOrEqual(
+                        Math.floor(initAmount / tryAmount),
+                    )
+                },
+                maxRetriesCaseFailure * retryDelayCaseFailure * 10,
+            )
 
             test('다른 유저의 포인트 사용을 동시에 실행 시 정상 처리', async () => {
                 const anotherUser = userId + 1
