@@ -60,6 +60,7 @@ export class Locks {
         try {
             return await this._tryCallback(callback, maxRetries, retryDelay)
         } catch (error) {
+            throw error
         } finally {
             unlock()
         }
