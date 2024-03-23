@@ -3,6 +3,8 @@ import { PointHistoryTable } from '../database/pointhistory.table'
 import { UserPointTable } from '../database/userpoint.table'
 import { PointHistory, TransactionType, UserPoint } from './point.model'
 import { Locks } from './locks'
+import { NotEnoughPointsError } from './error/NotEnoughPointsError'
+import { UserNotFoundError } from './error/UserNotFoundError'
 
 @Injectable()
 export class PointService {
@@ -12,12 +14,20 @@ export class PointService {
         private readonly historyDb: PointHistoryTable,
     ) {}
 
-    getUserPoint(id: number) {
-        return this.userDb.selectById(id)
+    async getUserPoint(id: number): Promise<UserPoint> {
+        const selectResult = await this.userDb.selectById(id)
+        if (!selectResult) {
+            throw new UserNotFoundError('User Not Found')
+        }
+        return selectResult
     }
 
-    getUserPointHistory(id: number) {
-        return this.historyDb.selectAllByUserId(id)
+    async getUserPointHistory(id: number): Promise<PointHistory[]> {
+        const selectResult = await this.historyDb.selectAllByUserId(id)
+        if (!selectResult) {
+            throw new UserNotFoundError('User Not Found')
+        }
+        return selectResult
     }
 
     async chargeUserPoint(id: number, amount: number): Promise<UserPoint> {
@@ -27,6 +37,9 @@ export class PointService {
             async () => {
                 try {
                     currentPoint = await this.userDb.selectById(id)
+                    if (!currentPoint) {
+                        throw new UserNotFoundError('User Not Found')
+                    }
                 } catch (error) {
                     throw error
                 }
@@ -114,7 +127,7 @@ export class PointService {
                         throw error
                     }
                 } else {
-                    throw new Error('Not enough points')
+                    throw new NotEnoughPointsError('Not enough points')
                 }
             },
             { userId: id, amount },

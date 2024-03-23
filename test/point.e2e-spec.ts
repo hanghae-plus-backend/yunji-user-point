@@ -113,7 +113,10 @@ describe('Point', () => {
                     .patch(`/point/0/use`)
                     .send({ amount: 50 })
 
-                expect(response.status).toBe(500)
+                expect(response.status).toBe(400)
+                expect(response.body.message).toBe(
+                    'id is must be positive number.',
+                )
             }, 10000)
 
             test('유효하지 않는 값으로 충전 시도 시 에러 발생', async () => {
