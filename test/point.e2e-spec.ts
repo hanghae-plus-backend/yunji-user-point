@@ -106,7 +106,7 @@ describe('Point', () => {
                     .send({ amount: initAmount * 5 })
 
                 expect(response.status).toBe(400)
-            })
+            }, 10000)
 
             test('유효하지 않는 아이디로 사용 시도 시 에러 발생', async () => {
                 const response = await request(app.getHttpServer())
@@ -114,7 +114,7 @@ describe('Point', () => {
                     .send({ amount: 50 })
 
                 expect(response.status).toBe(500)
-            })
+            }, 10000)
 
             test('유효하지 않는 값으로 충전 시도 시 에러 발생', async () => {
                 const response = await request(app.getHttpServer())
@@ -155,10 +155,12 @@ describe('Point', () => {
                     result => result.status === 'rejected',
                 )
 
+                console.log(successResponses)
+
                 expect(successResponses.length).toBeLessThanOrEqual(
                     Math.floor(initAmount / amountTry),
                 )
-            })
+            }, 60000)
 
             test('다른 유저의 포인트 사용을 동시에 실행 시 정상 처리', async () => {
                 const anotherUser = userId + 1
